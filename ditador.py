@@ -1,3 +1,4 @@
+from random import randint
 from string import punctuation
 from time import sleep
 import tkinter as tk
@@ -13,13 +14,23 @@ def le_p():read_button.click()
 def limpa_p():clear_button.click()
 
 # converte o texto a ditar para uma lista de palavras que podem ser usadas pelo programa
-def cria_palavras(ditado):
+def cria_palavras(ditado,tamanho_palavras):
     ditado = ditado.lower()
     for i in punctuation:ditado = ditado.replace(i,' ')
     proto_palavras,palavras = [i for i in ditado.split() if i != ''], []
-    for i in range(0,len(proto_palavras),3):palavras += [' '.join(proto_palavras[i:i+3])]
-    j = len(proto_palavras)//3*3
+    for i in range(0,len(proto_palavras),tamanho_palavras):palavras += [' '.join(proto_palavras[i:i+tamanho_palavras])]
+    j = len(proto_palavras)//tamanho_palavras*tamanho_palavras
     if j > 0 and j<len(palavras)-1:palavras += [' '.join(proto_palavras[j:])]
+    return palavras
+
+def cria_palavras_random(ditado,tamanho_palavras,numero_palavras):
+    ditado = [i for i in ditado.replace('\n',' ').lower().split(' ') if i != '']
+    limite,palavras = len(ditado)-1,[]
+    for i in range(numero_palavras):
+        palavra = []
+        for j in range(tamanho_palavras):palavra += [ditado[randint(0,limite)]]
+        palavra = ' '.join(palavra)
+        palavras += [palavra]
     return palavras
 
 # atualiza o texto mostrado
@@ -49,7 +60,6 @@ def acabar_ditado():
     pontuação_palavra_texto.config(text='')
     texto.config(text='acabaste!')
     correção.config(text=f'pmpp={round((pontuação+pontuação_palavra)/len(palavras),1)}')
-    janela.focus_set()
 
 # mostra a próxima palavra
 def muda_palavra():
@@ -95,7 +105,7 @@ def submeter_palavra(event):
         corrigir()
 
 
-def começa_ditado(event):
+def começa_ditado():
     '''
     inicia a janela do tradutor
     '''
@@ -112,6 +122,9 @@ def começa_ditado(event):
     read_button = driver.find_element('xpath','/html/body/main/div/div[1]/div[1]/div/table/tbody/tr/td[1]/div[1]/div[4]/div/div[1]/div/div')
     clear_button = driver.find_element('xpath','/html/body/main/div/div[1]/div[1]/div/table/tbody/tr/td[1]/div[1]/div[3]/div/div[1]/div/div')
 
+    '''
+    prepara a janela para começar a ditar
+    '''
     global janela,pontuação_palavra_texto,pontuação_texto,texto,correção,entrada
     # criar o texto que mostra a quantidade de tentativas
     pontuação_palavra_texto = tk.Label(janela, bg='black', fg='white', font=('Arial', 40), text='10')
@@ -120,13 +133,13 @@ def começa_ditado(event):
     pontuação_texto = tk.Label(janela,bg='black',fg='white',font=('Arial',40),text='0')
     pontuação_texto.place(x = janela.winfo_screenwidth()-510, y = 200)
     # cria o texto
-    texto = tk.Label(janela,bg='black',fg='white',font=('Arial',77777770))
+    texto = tk.Label(janela,bg='black',fg='white',font=('Arial',70))
     texto.pack(pady=(320,0))
     # cria o texto que mostra a palavra correta
     correção = tk.Label(janela,bg='black',fg='white',font=('Arial',60))
     correção.pack(pady=(80,0))
     # cria a entrada de input , .focus_set faz com que o input seja direcionado para a entrada de texto
-    entrada = tk.Entry(bg='black',bd=0)
+    entrada = tk.Entry(janela,bg='black',bd=0)
     entrada.focus_set()
     entrada.place(x=janela.winfo_screenwidth(),y=janela.winfo_screenheight())
 
@@ -135,9 +148,16 @@ def começa_ditado(event):
     '''
     global palavras,a_corrigir,index_palavra,palavra,pontuação,pontuação_palavra,texto_atual
     # cria o ditado
-    ditado = entrada_ditado.get()
+    ditado = entrada_ditado.get(1.0,tk.END)
+    número_palavras = random_number_words.get()
+    tamanho_palavras = size_number_words.get()
+    if tamanho_palavras == '': tamanho_palavras = 1
+    else: tamanho_palavras = int(tamanho_palavras)
+    if número_palavras == '':palavras = cria_palavras(ditado,tamanho_palavras)
+    else:palavras = cria_palavras_random(ditado,tamanho_palavras,int(número_palavras))
+    # destroi a UI antiga
     entrada_ditado.destroy()
-    palavras = cria_palavras(ditado)
+    frame.destroy()
     # cria outras variáveis
     a_corrigir = False
     index_palavra = 0
@@ -150,11 +170,16 @@ def começa_ditado(event):
     sleep(1.5)
     le_p()
 
-    # faz com que os comandos do teclado funcionem
+
+    '''
+    cria os bindis necessários
+    '''
     janela.bind('<Key>',atualiza_texto)
     janela.bind('<Return>',submeter_palavra)
     janela.bind('<Control_L>',lambda event:le_p)
     janela.bind('<Escape>',fechar_programa)
+
+
 
 
 # abre a janela do tkinter
@@ -164,12 +189,27 @@ janela.geometry(f'{janela.winfo_screenwidth()}x{janela.winfo_screenheight()}')
 janela.config(bg='black')
 janela.state('zoomed')
 
-entrada_ditado = tk.Entry(janela,bg='black',fg='white',bd=0,font=('Arial',20))
-entrada_ditado.focus_set()
-entrada_ditado.insert(0,'''Era uma vez um pequeno vilarejo escondido nas montanhas''')
-entrada_ditado.pack(pady=(janela.winfo_screenheight()/2-20,0))
+frame = tk.Frame(janela,bg='black')
+frame.pack(pady=30)
 
-janela.bind('<Control_L>',começa_ditado)
+continue_button = tk.Button(frame,bg='black',fg='white',bd=2,width=10,height=2 ,text='Confirmar',command=começa_ditado)
+continue_button.grid(row=0,column=0)
+
+random_label = tk.Label(frame,text='Número de palavra aleatórias:',font=('Arial',20),bg='black',fg='white')
+random_label.grid(row=0,column=1,padx=20)
+
+random_number_words = tk.Entry(frame,bg='black',fg='white',bd=2,font=('Arial',20),width=5)
+random_number_words.grid(row=0,column=2)
+
+size_label = tk.Label(frame,text='Tamanho das palavras:',font=('Arial',20),bg='black',fg='white')
+size_label.grid(row=0,column=3,padx=20)
+
+size_number_words = tk.Entry(frame,bg='black',fg='white',bd=2,font=('Arial',20),width=5)
+size_number_words.grid(row=0,column=4)
+
+entrada_ditado = tk.Text(janela,bg='gray',fg='white',bd=0,font=('Arial',20),width=85,height=19)
+entrada_ditado.pack()
+
 janela.bind('<Escape>',lambda event:janela.destroy)
 
 # inpede a janela de se fechar
